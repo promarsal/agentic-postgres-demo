@@ -2,35 +2,59 @@
 
 ## What You Need
 
-1. [TigerData account](https://console.tigerdata.cloud) (free)
-2. [OpenAI API key](https://platform.openai.com/api-keys)
-3. Node.js 18+
+1. [OpenAI API key](https://platform.openai.com/api-keys)
+2. Node.js 18+
 
-## Setup
+## Step 1: Setup TigerData (via MCP)
+
+Install and connect TigerData in 3 commands:
 
 ```bash
-# 1. Install
+# Install Tiger CLI
+curl -fsSL https://cli.tigerdata.com | sh
+
+# Authenticate (opens browser)
+tiger auth login
+
+# Install MCP (connects TigerData to your environment)
+tiger mcp install
+```
+
+**What this does:**
+- Creates a free TigerData account (if you don't have one)
+- Sets up PostgreSQL with TimescaleDB, pgvector, and pgvectorscale
+- Configures MCP for database access
+- Provides your `DATABASE_URL`
+
+## Step 2: Setup the Demo
+
+```bash
+# Clone and install
+git clone https://github.com/promarsal/agentic-postgres-demo.git
+cd agentic-postgres-demo
 npm install
 
-# 2. Configure (create .env file)
+# Configure
 echo "OPENAI_API_KEY=sk-your-key-here" > .env
-echo "DATABASE_URL=postgresql://user:pass@host:port/db" >> .env
+echo "DATABASE_URL=postgresql://..." >> .env  # From tiger mcp install output
 
-# 3. Setup database
+# Setup database
 npm run build && npm run setup
 
-# 4. Generate embeddings
+# Generate embeddings
 npm run populate-embeddings
 
-# 5. Try it!
+# Try it!
 npm run dev "What are customers saying about Premium Wireless Headphones?"
 ```
 
 ## Get Your DATABASE_URL
 
-1. Go to [TigerData Console](https://console.tigerdata.cloud)
-2. Click your service → "Connection Info"
-3. Copy the connection string (includes password)
+After running `tiger mcp install`, you'll see your connection string. Or:
+
+1. Run `tiger service list` to see your services
+2. Run `tiger service get <service-id>` to get connection info
+3. Or visit [TigerData Console](https://console.tigerdata.cloud) → Your Service → "Connection Info"
 
 ## 🧪 Test It! Run These 6 Questions
 

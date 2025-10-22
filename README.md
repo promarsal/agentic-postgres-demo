@@ -23,14 +23,42 @@ A single PostgreSQL database can replace:
 
 ## ⚡ Quick Start
 
-**TL;DR**: Need [TigerData](https://console.tigerdata.cloud) + [OpenAI key](https://platform.openai.com/api-keys) + Node 18+
+### Prerequisites
+- [OpenAI API key](https://platform.openai.com/api-keys)
+- Node.js 18+
+
+### Get Started in 3 Commands
+
+Install and start building with Agentic Postgres:
 
 ```bash
+# Install Tiger CLI
+curl -fsSL https://cli.tigerdata.com | sh
+
+# Authenticate
+tiger auth login
+
+# Install MCP (connects TigerData to your environment)
+tiger mcp install
+```
+
+### Setup the Demo
+
+```bash
+# Clone and install
+git clone https://github.com/promarsal/agentic-postgres-demo.git
+cd agentic-postgres-demo
 npm install
+
+# Configure
 echo "OPENAI_API_KEY=sk-..." > .env
-echo "DATABASE_URL=postgresql://..." >> .env
+echo "DATABASE_URL=postgresql://..." >> .env  # Get from: tiger mcp install output
+
+# Setup database
 npm run build && npm run setup
 npm run populate-embeddings
+
+# Try it!
 npm run dev "What are customers saying about Premium Wireless Headphones?"
 ```
 

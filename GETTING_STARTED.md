@@ -4,30 +4,46 @@
 
 ### What You Need
 
-1. **TigerData Account** (free tier available)
-   - Sign up: https://console.tigerdata.cloud
-   - Create a new service (TimescaleDB)
-   - Get your connection string from "Connection Info"
-
-2. **OpenAI API Key**
+1. **OpenAI API Key**
    - Get from: https://platform.openai.com/api-keys
    - You'll use this for the agent and embeddings
 
-3. **Node.js 18+**
+2. **Node.js 18+**
    - Check: `node --version`
 
 ---
 
 ## Setup (takes ~5 minutes)
 
-### Step 1: Clone and install
+### Step 1: Setup TigerData (via MCP)
+
+Install and connect TigerData in 3 commands:
+
 ```bash
-git clone <your-repo-url>
+# Install Tiger CLI
+curl -fsSL https://cli.tigerdata.com | sh
+
+# Authenticate (opens browser to sign up/login)
+tiger auth login
+
+# Install MCP (sets up PostgreSQL with all extensions)
+tiger mcp install
+```
+
+**What `tiger mcp install` does:**
+- Creates a TigerData service if you don't have one
+- Enables TimescaleDB, pgvector, and pgvectorscale extensions
+- Configures MCP for database access
+- Displays your `DATABASE_URL` connection string
+
+### Step 2: Clone and install
+```bash
+git clone https://github.com/promarsal/agentic-postgres-demo.git
 cd agentic-postgres-demo
 npm install
 ```
 
-### Step 2: Configure environment
+### Step 3: Configure environment
 Create `.env` file in project root:
 ```
 OPENAI_API_KEY=sk-proj-...
@@ -36,10 +52,11 @@ DATABASE_URL=postgresql://tsdbadmin:PASSWORD@xxx.tsdb.cloud.timescale.com:34416/
 
 **Important:**
 - Replace `sk-proj-...` with your actual OpenAI API key
-- Replace `PASSWORD` and `xxx` with your TigerData connection details
-- Get DATABASE_URL from TigerData Console → Your Service → "Connection Info"
+- Get `DATABASE_URL` from `tiger mcp install` output
+- Or run `tiger service get <service-id>` to retrieve it
+- Or get from [TigerData Console](https://console.tigerdata.cloud) → Connection Info
 
-### Step 3: Setup database
+### Step 4: Setup database
 ```bash
 npm run build
 npm run setup
@@ -58,7 +75,7 @@ This will:
   - 71 orders (14-day history with declining sales pattern)
   - 88 feedback entries (27 complaints about Product X, 8 about Product Y)
 
-### Step 4: Generate embeddings
+### Step 5: Generate embeddings
 ```bash
 npm run populate-embeddings
 ```
@@ -67,7 +84,7 @@ This generates vector embeddings for semantic search (~30 seconds).
 
 **For production:** Enable pgai extension in TigerData Console and configure OpenAI API key there. Then embeddings generate automatically in the database!
 
-### Step 5: Test it!
+### Step 6: Test it!
 ```bash
 npm run dev "What are customers saying about Premium Wireless Headphones?"
 ```
