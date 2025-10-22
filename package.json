@@ -1,0 +1,33 @@
+{
+  "name": "agentic-postgres-demo",
+  "version": "1.0.0",
+  "description": "AI agents running in Postgres via MCP",
+  "type": "module",
+  "bin": {
+    "agent": "./dist/cli.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/cli.js",
+    "dev": "tsx src/cli.ts",
+    "setup": "node dist/setup.js",
+    "setup-tigerdata": "tsx src/setup-tigerdata.ts",
+    "load-data": "tsx src/load-data-only.ts",
+    "reset-data": "tsx src/reset-demo-data.ts",
+    "migrate": "tsx src/migrate.ts",
+    "populate-embeddings": "tsx src/populate-embeddings.ts"
+  },
+  "dependencies": {
+    "ai": "^3.3.0",
+    "@ai-sdk/openai": "^0.0.66",
+    "zod": "^3.23.8",
+    "postgres": "^3.4.4",
+    "dotenv": "^16.4.5"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "typescript": "^5.3.3",
+    "tsx": "^4.7.0"
+  }
+}
+
