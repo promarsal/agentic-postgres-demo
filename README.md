@@ -2,6 +2,10 @@
 
 **One database. Seven capabilities. Zero complexity.**
 
+<p align="center">
+  <img src="agentic-postgres-black-theme.png" alt="Agentic Postgres - AI Agent with PostgreSQL" width="600">
+</p>
+
 AI agents that investigate, learn, and remember - powered by PostgreSQL + TimescaleDB + pgvector + pgvectorscale.
 
 ## 🎯 What This Demo Shows
