@@ -25,6 +25,10 @@ A single PostgreSQL database can replace:
 - Store and recall insights (agent memory)
 - Track every decision (observability)
 
+**Two Ways to Use:**
+- 🌐 **Web Interface** - ChatGPT-like UI with real-time agent thinking visualization
+- 💻 **Command Line** - For scripting and automation
+
 ## ⚡ Quick Start
 
 ### Prerequisites
@@ -61,8 +65,26 @@ echo "DATABASE_URL=postgresql://..." >> .env  # Get from: tiger mcp install outp
 # Setup database
 npm run build && npm run setup
 npm run populate-embeddings
+```
 
-# Try it!
+### Run the Demo
+
+#### Option 1: Web Interface (ChatGPT-like UI)
+```bash
+cd web
+npm install
+
+# Configure (create .env.local)
+echo "OPENAI_API_KEY=sk-..." > .env.local
+echo "DATABASE_URL=postgresql://..." >> .env.local
+
+# Start dev server
+npm run dev
+```
+Open [http://localhost:3000](http://localhost:3000)
+
+#### Option 2: Command Line
+```bash
 npm run dev "What are customers saying about Premium Wireless Headphones?"
 ```
 
