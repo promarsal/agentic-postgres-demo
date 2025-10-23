@@ -25,9 +25,8 @@ A single PostgreSQL database can replace:
 - Store and recall insights (agent memory)
 - Track every decision (observability)
 
-**Two Ways to Use:**
-- 🌐 **Web Interface** - ChatGPT-like UI with real-time agent thinking visualization
-- 💻 **Command Line** - For scripting and automation
+**How to Use:**
+- 💻 **Command Line Interface** - Interactive agent with full observability
 
 ## ⚡ Quick Start
 
@@ -68,23 +67,8 @@ npm run populate-embeddings
 ```
 
 ### Run the Demo
-
-#### Option 1: Web Interface (ChatGPT-like UI)
 ```bash
-cd web
-npm install
-
-# Configure (create .env.local)
-echo "OPENAI_API_KEY=sk-..." > .env.local
-echo "DATABASE_URL=postgresql://..." >> .env.local
-
-# Start dev server
-npm run dev
-```
-Open [http://localhost:3000](http://localhost:3000)
-
-#### Option 2: Command Line
-```bash
+# Interactive agent with full observability
 npm run dev "What are customers saying about Premium Wireless Headphones?"
 ```
 
