@@ -1,0 +1,76 @@
+#!/bin/bash
+
+# TigerData Demo Story Runner
+# Runs all 6 questions in sequence to tell the complete investigation story
+
+echo "╔═══════════════════════════════════════════════════════════════╗"
+echo "║   🐯 TigerData Demo: The Online Store Mystery 🐯            ║"
+echo "╚═══════════════════════════════════════════════════════════════╝"
+echo ""
+echo "This demo tells a story where one question leads to another,"
+echo "showcasing how TigerData technologies work together."
+echo ""
+echo "Press ENTER after each question to continue to the next..."
+echo ""
+
+read -p "Ready to start? Press ENTER..."
+
+echo ""
+echo "═══════════════════════════════════════════════════════════════"
+echo "Q1: SQL Analytics 📊"
+echo "═══════════════════════════════════════════════════════════════"
+npm run dev "Sales dropped yesterday compared to last week - why?"
+read -p "Press ENTER to continue..."
+
+echo ""
+echo "═══════════════════════════════════════════════════════════════"
+echo "Q2: Hybrid Search 🔍✨"
+echo "═══════════════════════════════════════════════════════════════"
+npm run dev "What are customers saying about Premium Wireless Headphones?"
+read -p "Press ENTER to continue..."
+
+echo ""
+echo "═══════════════════════════════════════════════════════════════"
+echo "Q3: Semantic Search 🧠"
+echo "═══════════════════════════════════════════════════════════════"
+npm run dev "Are other products showing similar quality issues?"
+read -p "Press ENTER to continue..."
+
+echo ""
+echo "═══════════════════════════════════════════════════════════════"
+echo "Q4: SQL Joins 🔗"
+echo "═══════════════════════════════════════════════════════════════"
+npm run dev "Which customers bought Premium Wireless Headphones and left negative feedback?"
+read -p "Press ENTER to continue..."
+
+echo ""
+echo "═══════════════════════════════════════════════════════════════"
+echo "Q5: Agent Memory 🧠💾"
+echo "═══════════════════════════════════════════════════════════════"
+npm run dev "Based on what we've learned, what should I do immediately?"
+read -p "Press ENTER to continue..."
+
+echo ""
+echo "═══════════════════════════════════════════════════════════════"
+echo "Q6: Meta-Analysis 🔬"
+echo "═══════════════════════════════════════════════════════════════"
+npm run dev "Show me how you figured out the sales drop - what was your investigation process?"
+
+echo ""
+echo "╔═══════════════════════════════════════════════════════════════╗"
+echo "║                    🎉 Demo Complete! 🎉                       ║"
+echo "╚═══════════════════════════════════════════════════════════════╝"
+echo ""
+echo "Technologies Demonstrated:"
+echo "  ✓ PostgreSQL - Unified database"
+echo "  ✓ TimescaleDB - Time-series analysis"
+echo "  ✓ pgvector - Vector embeddings"
+echo "  ✓ pgvectorscale - DiskANN index"
+echo "  ✓ PostgreSQL FTS - Full-text search"
+echo "  ✓ Hybrid Search - RRF (FTS + Vectors)"
+echo "  ✓ Agent Memory - Learning across investigations"
+echo "  ✓ Self-Observability - Meta-analysis"
+echo ""
+echo "ONE Database. Multiple Capabilities. Powered by TigerData! 🐯"
+echo ""
+

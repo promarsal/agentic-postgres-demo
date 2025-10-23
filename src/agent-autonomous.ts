@@ -284,24 +284,41 @@ export async function runAgent(task: string, agentName: string = 'detective') {
     }),
     
     analyze_agent_performance: tool({
-      description: 'Analyze your own investigation process and performance (meta-analysis)',
+      description: 'Analyze investigation process and performance - either current or a recent past investigation',
       parameters: z.object({
-        reasoning: z.string().describe('Why you want to analyze your performance')
+        search_query: z.string().optional().describe('Optional: search keywords to find a specific past investigation (e.g., "sales drop")'),
+        reasoning: z.string().describe('Why you want to analyze this investigation')
       }),
-      execute: async ({ reasoning }) => {
+      execute: async ({ search_query, reasoning }) => {
         console.log('⚡ Action: analyze_agent_performance');
         console.log('   Reason:', reasoning);
+        if (search_query) {
+          console.log('   Searching for:', search_query);
+        }
         console.log('');
         
         try {
-          const stats = await db.analyzeAgentPerformance(questionId);
+          let targetQuestionId = questionId;
+          
+          // If search query provided, find the most recent matching question
+          if (search_query) {
+            const recentQuestions = await db.searchRecentQuestions(agentName, search_query, 1);
+            if (recentQuestions.length > 0) {
+              targetQuestionId = recentQuestions[0].id;
+              console.log(`   Found investigation: "${recentQuestions[0].question}"`);
+              console.log('');
+            }
+          }
+          
+          const stats = await db.analyzeAgentPerformance(targetQuestionId);
           console.log(`✓ Performance analysis complete`);
           console.log(`   Steps: ${stats.total_steps}, Duration: ${stats.duration_ms}ms`);
           console.log('');
           
           await db.storeEvent(questionId, agentName, stepCount, 'action', {
             tool: 'analyze_agent_performance',
-            reasoning
+            reasoning,
+            analyzed_question_id: targetQuestionId
           }).catch(() => {});
           
           return {
@@ -315,7 +332,8 @@ export async function runAgent(task: string, agentName: string = 'detective') {
               queries_executed: stats.queries_executed,
               reasoning_steps: stats.reasoning_steps,
               errors: stats.errors,
-              tools_used: stats.tools_used
+              tools_used: stats.tools_used,
+              tool_usage_breakdown: stats.tool_usage
             }
           };
         } catch (error: any) {
@@ -353,6 +371,7 @@ YOUR TOOLS & WHEN TO USE THEM:
    FEATURES: Finds BOTH exact keywords AND semantically similar concepts
    WHY POWERFUL: Catches subtle complaints that keyword search misses
    EXAMPLE: Finds "disappointed with purchase" AND "Product X broken"
+   KEYWORD FORMAT: Use | for OR, & for AND (e.g., "broken|defective|damaged")
 
 3. semantic_search_feedback - Vector similarity search
    USE FOR: Finding conceptually related feedback (not just exact words)
@@ -362,6 +381,7 @@ YOUR TOOLS & WHEN TO USE THEM:
 4. fulltext_search - PostgreSQL full-text search
    USE FOR: Finding specific keywords or terms (when exactness matters)
    FEATURES: Boolean operators (|=OR, &=AND, !=NOT), ranked results
+   KEYWORD FORMAT: Use | for OR, & for AND (e.g., "quality&issues" or "broken|damaged")
 
 5. store_insight - Save important findings
    USE WHEN: You discover something significant worth remembering
@@ -382,8 +402,14 @@ INVESTIGATION STRATEGY:
 Question Type → Approach:
 
 "Why did sales drop?" 
-→ query_database (compare time periods)
-→ store_insight (root cause)
+→ 1. Compare meaningful time periods:
+     - Yesterday vs day before: CURRENT_DATE-1 vs CURRENT_DATE-2
+     - Yesterday vs same day last week: CURRENT_DATE-1 vs CURRENT_DATE-8
+     - This week vs last week: CURRENT_DATE-6 to CURRENT_DATE vs CURRENT_DATE-13 to CURRENT_DATE-7
+     - NEVER compare 1 day to a whole week! Not meaningful!
+→ 2. ALWAYS break down by product: GROUP BY product_name to find culprit
+→ 3. Check user feedback for declining products: hybrid_search
+→ 4. store_insight (root cause with product details)
 
 "What are customers saying?"
 → hybrid_search (comprehensive feedback search)
@@ -423,6 +449,38 @@ IMPORTANT SQL TIPS:
 - NEVER SELECT embedding columns (they're huge 1536-dimensional vectors!)
 - For customer analysis: JOIN orders with user_feedback on customer_id
 - For lifetime value: SUM(amount) GROUP BY customer_id
+
+SALES DROP INVESTIGATION QUERIES:
+
+1. Compare yesterday vs day before BY PRODUCT (simpler and clearer):
+   SELECT 
+     product_name, 
+     SUM(CASE WHEN order_date = CURRENT_DATE-1 THEN amount ELSE 0 END) as yesterday_sales,
+     SUM(CASE WHEN order_date = CURRENT_DATE-2 THEN amount ELSE 0 END) as day_before_sales,
+     SUM(CASE WHEN order_date = CURRENT_DATE-1 THEN amount ELSE 0 END) -
+     SUM(CASE WHEN order_date = CURRENT_DATE-2 THEN amount ELSE 0 END) as change_amount
+   FROM orders 
+   WHERE order_date IN (CURRENT_DATE-1, CURRENT_DATE-2)
+   GROUP BY product_name
+   ORDER BY change_amount;
+   
+   Result columns: [product_name, yesterday_sales, day_before_sales, change_amount]
+   Negative change_amount = sales dropped!
+
+2. Compare yesterday vs same day last week BY PRODUCT:
+   SELECT 
+     product_name,
+     SUM(CASE WHEN order_date = CURRENT_DATE-8 THEN amount ELSE 0 END) as last_week_sales,
+     SUM(CASE WHEN order_date = CURRENT_DATE-1 THEN amount ELSE 0 END) as yesterday_sales,
+     SUM(CASE WHEN order_date = CURRENT_DATE-1 THEN amount ELSE 0 END) -
+     SUM(CASE WHEN order_date = CURRENT_DATE-8 THEN amount ELSE 0 END) as change_amount
+   FROM orders
+   WHERE order_date IN (CURRENT_DATE-8, CURRENT_DATE-1)
+   GROUP BY product_name
+   ORDER BY change_amount;
+   
+   Result columns: [product_name, last_week_sales, yesterday_sales, change_amount]
+   Negative change_amount = sales dropped!
 
 ═══════════════════════════════════════════════════════════════
 INVESTIGATION FLOW:

@@ -95,6 +95,20 @@ export const db = {
     return result[0];
   },
   
+  // Search recent questions by text
+  async searchRecentQuestions(agentName: string, searchText: string, limit: number = 5): Promise<any[]> {
+    const result = await sql`
+      SELECT id, question, status, started_at, completed_at, total_steps
+      FROM agent_questions
+      WHERE agent_name = ${agentName}
+        AND question ILIKE ${'%' + searchText + '%'}
+        AND status = 'completed'
+      ORDER BY started_at DESC
+      LIMIT ${limit}
+    `;
+    return result;
+  },
+  
   // Semantic search using TigerData's vector search (pgvectorscale)  
   async searchMemory(agentName: string, query: string, limit: number = 5): Promise<any[]> {
     // Showcase: TigerData runs embeddings INSIDE Postgres using ai.openai_embed()
@@ -158,14 +172,8 @@ export const db = {
   
   // Full-text search on user feedback (PostgreSQL FTS)
   async fulltextSearchFeedback(searchTerms: string, limit: number = 10): Promise<any[]> {
-    // Convert search terms to proper tsquery format (handle spaces and special chars)
-    // Replace spaces with & (AND operator), escape special characters
-    const formattedTerms = searchTerms
-      .replace(/[^\w\s|&!]/g, '') // Remove special chars except |, &, !
-      .trim()
-      .split(/\s+/)
-      .join(' & '); // Join words with AND
-    
+    // Use websearch_to_tsquery for natural language handling (handles phrases and operators)
+    // This automatically handles spaces, quotes, and operators properly
     const result = await sql`
       SELECT 
         id,
@@ -176,10 +184,10 @@ export const db = {
         created_at,
         ts_rank(
           to_tsvector('english', feedback_text),
-          to_tsquery('english', ${formattedTerms})
+          websearch_to_tsquery('english', ${searchTerms})
         ) as rank
       FROM user_feedback
-      WHERE to_tsvector('english', feedback_text) @@ to_tsquery('english', ${formattedTerms})
+      WHERE to_tsvector('english', feedback_text) @@ websearch_to_tsquery('english', ${searchTerms})
       ORDER BY rank DESC
       LIMIT ${limit}
     `;
@@ -199,14 +207,8 @@ export const db = {
     
     const vectorStr = `[${embedding.join(',')}]`;
     
-    // Format keywords for tsquery (handle spaces)
-    const formattedKeywords = keywords
-      .replace(/[^\w\s|&!]/g, '')
-      .trim()
-      .split(/\s+/)
-      .join(' & ');
-    
     // RRF (Reciprocal Rank Fusion) hybrid search
+    // Use websearch_to_tsquery for natural language handling
     const result = await sql`
       WITH semantic_search AS (
         SELECT 
@@ -226,14 +228,14 @@ export const db = {
           id,
           ts_rank(
             to_tsvector('english', feedback_text),
-            to_tsquery('english', ${formattedKeywords})
+            websearch_to_tsquery('english', ${keywords})
           ) as fts_rank,
           ROW_NUMBER() OVER (ORDER BY ts_rank(
             to_tsvector('english', feedback_text),
-            to_tsquery('english', ${formattedKeywords})
+            websearch_to_tsquery('english', ${keywords})
           ) DESC) as rank
         FROM user_feedback
-        WHERE to_tsvector('english', feedback_text) @@ to_tsquery('english', ${formattedKeywords})
+        WHERE to_tsvector('english', feedback_text) @@ websearch_to_tsquery('english', ${keywords})
       ),
       combined AS (
         SELECT 
