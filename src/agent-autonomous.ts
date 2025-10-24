@@ -32,18 +32,38 @@ export async function runAgent(task: string, agentName: string = 'detective') {
         reasoning: z.string().describe('Why you are running this query')
       }),
       execute: async ({ sql, reasoning }: { sql: string; reasoning: string }) => {
-        console.log('⚡ Action: query_database');
-        console.log('   Reason:', reasoning);
-        console.log('   SQL:');
-        console.log('   ' + sql.split('\n').map(line => '   ' + line).join('\n'));
-        console.log('');
+        stepCount++;
+        console.log(`\n${'━'.repeat(70)}`);
+        console.log(`📊 STEP ${stepCount}: SQL Query`);
+        console.log('━'.repeat(70));
+        console.log(`\n💡 Reason: ${reasoning}\n`);
+        console.log('📝 SQL:');
+        console.log('─'.repeat(70));
+        const sqlLines = sql.trim().split('\n');
+        sqlLines.forEach(line => {
+          console.log('  ' + line);
+        });
+        console.log('─'.repeat(70));
         
         try {
           const result = await db.executeQuery(sql);
-          console.log(`✓ Result: ${result.rows?.length || 0} rows`);
-          if (result.rows && result.rows.length > 0) {
-            console.log('   Sample:', JSON.stringify(result.rows.slice(0, 2)));
+          console.log(`\n✅ Result: ${result.rows?.length || 0} rows returned\n`);
+          
+          if (result.rows && result.rows.length > 0 && result.rows.length <= 5) {
+            console.log('📊 Results:');
+            result.rows.forEach((row, idx) => {
+              const formatted = Array.isArray(row) ? row.join(' | ') : JSON.stringify(row);
+              console.log(`   ${idx + 1}. ${formatted}`);
+            });
+          } else if (result.rows && result.rows.length > 5) {
+            console.log('📊 Top 3 Results:');
+            result.rows.slice(0, 3).forEach((row, idx) => {
+              const formatted = Array.isArray(row) ? row.join(' | ') : JSON.stringify(row);
+              console.log(`   ${idx + 1}. ${formatted}`);
+            });
+            console.log(`   ... and ${result.rows.length - 3} more rows`);
           }
+          console.log('');
           
           // Store agent action in TimescaleDB hypertable for observability
           await db.storeEvent(questionId, agentName, stepCount, 'action', {
@@ -59,7 +79,8 @@ export async function runAgent(task: string, agentName: string = 'detective') {
             rowCount: result.rows?.length || 0
           };
         } catch (error: any) {
-          console.log('✗ Error:', error.message);
+          console.log('\n❌ Error:', error.message);
+          console.log('');
           
           // Store errors too
           await db.storeEvent(questionId, agentName, stepCount, 'error', {
@@ -84,20 +105,61 @@ export async function runAgent(task: string, agentName: string = 'detective') {
         reasoning: z.string().describe('Why you are using hybrid search')
       }),
       execute: async ({ query, keywords, reasoning }) => {
-        console.log('⚡ Action: hybrid_search');
-        console.log('   Reason:', reasoning);
-        console.log('   Semantic query:', query);
-        console.log('   Keywords:', keywords);
+        stepCount++;
+        console.log(`\n${'━'.repeat(70)}`);
+        console.log(`🔍 STEP ${stepCount}: Hybrid Search (BM25 + Vector)`);
+        console.log('━'.repeat(70));
+        console.log(`\n💡 Reason: ${reasoning}\n`);
+        console.log(`🔍 Semantic Query: ${query}`);
+        console.log(`🔑 Keywords: ${keywords}\n`);
+        
+        // Show the hybrid search SQL (simplified for display)
+        console.log('📝 SQL: Hybrid Search with Reciprocal Rank Fusion (RRF)');
+        console.log('─'.repeat(70));
+        console.log('  WITH semantic_search AS (');
+        console.log('    -- Vector similarity using pgvectorscale');
+        console.log('    SELECT id, feedback_text, sentiment,');
+        console.log('           1 - (embedding <=> query_vector) as similarity,');
+        console.log('           ROW_NUMBER() OVER (ORDER BY embedding <=> query_vector) as rank');
+        console.log('    FROM user_feedback WHERE embedding IS NOT NULL');
+        console.log('  ),');
+        console.log('  fulltext_search AS (');
+        console.log('    -- BM25 keyword search using PostgreSQL FTS');
+        console.log('    SELECT id, ts_rank(...) as fts_rank,');
+        console.log('           ROW_NUMBER() OVER (ORDER BY ts_rank(...) DESC) as rank');
+        console.log('    FROM user_feedback');
+        console.log('    WHERE to_tsvector(feedback_text) @@ websearch_to_tsquery(keywords)');
+        console.log('  ),');
+        console.log('  combined AS (');
+        console.log('    -- RRF: Combine rankings with 1/(rank+60) formula');
+        console.log('    SELECT *, (1.0/(s.rank+60) + 1.0/(f.rank+60)) as rrf_score');
+        console.log('    FROM semantic_search s FULL OUTER JOIN fulltext_search f USING (id)');
+        console.log('  )');
+        console.log('  SELECT * FROM combined ORDER BY rrf_score DESC LIMIT 15;');
+        console.log('─'.repeat(70));
         console.log('');
         
         try {
           const results = await db.hybridSearchFeedback(query, keywords, 15);
-          console.log(`✓ Found: ${results.length} results (FTS + Vector search)`);
+          const both = results.filter((r: any) => r.match_type === 'both').length;
+          const semantic = results.filter((r: any) => r.match_type === 'semantic_only').length;
+          const keyword = results.filter((r: any) => r.match_type === 'fulltext_only').length;
+          
+          console.log(`✅ Found: ${results.length} results\n`);
+          console.log('📊 Match Breakdown:');
+          console.log(`   • Both (BM25 + Vector): ${both}`);
+          console.log(`   • Semantic only: ${semantic}`);
+          console.log(`   • Keyword only: ${keyword}\n`);
+          
           if (results.length > 0) {
-            const both = results.filter((r: any) => r.match_type === 'both').length;
-            const semantic = results.filter((r: any) => r.match_type === 'semantic_only').length;
-            const keyword = results.filter((r: any) => r.match_type === 'fulltext_only').length;
-            console.log(`   Both matches: ${both}, Semantic only: ${semantic}, Keyword only: ${keyword}`);
+            console.log('💬 Sample Feedback:');
+            results.slice(0, 3).forEach((r: any, idx: number) => {
+              const preview = r.feedback_text.substring(0, 65) + (r.feedback_text.length > 65 ? '...' : '');
+              console.log(`   ${idx + 1}. "${preview}" [${r.sentiment}]`);
+            });
+            if (results.length > 3) {
+              console.log(`   ... and ${results.length - 3} more feedback items`);
+            }
           }
           console.log('');
           
@@ -122,7 +184,8 @@ export async function runAgent(task: string, agentName: string = 'detective') {
             totalResults: results.length
           };
         } catch (error: any) {
-          console.log('✗ Error:', error.message);
+          console.log('\n❌ Error:', error.message);
+          console.log('');
           return { success: false, error: error.message };
         }
       }
@@ -135,14 +198,27 @@ export async function runAgent(task: string, agentName: string = 'detective') {
         reasoning: z.string().describe('Why you are using semantic search')
       }),
       execute: async ({ query, reasoning }) => {
-        console.log('⚡ Action: semantic_search_feedback');
-        console.log('   Reason:', reasoning);
-        console.log('   Query:', query);
-        console.log('');
+        stepCount++;
+        console.log(`\n${'━'.repeat(70)}`);
+        console.log(`🧠 STEP ${stepCount}: Semantic Search (Vector)`);
+        console.log('━'.repeat(70));
+        console.log(`\n💡 Reason: ${reasoning}\n`);
+        console.log(`🔍 Query: ${query}\n`);
         
         try {
           const results = await db.semanticSearchFeedback(query, 10);
-          console.log(`✓ Found: ${results.length} semantically similar results`);
+          console.log(`✅ Found: ${results.length} semantically similar results\n`);
+          
+          if (results.length > 0) {
+            console.log('💬 Sample Matches:');
+            results.slice(0, 3).forEach((r: any, idx: number) => {
+              const preview = r.feedback_text.substring(0, 65) + (r.feedback_text.length > 65 ? '...' : '');
+              console.log(`   ${idx + 1}. "${preview}" [${r.sentiment}]`);
+            });
+            if (results.length > 3) {
+              console.log(`   ... and ${results.length - 3} more results`);
+            }
+          }
           console.log('');
           
           await db.storeEvent(questionId, agentName, stepCount, 'action', {
@@ -163,7 +239,9 @@ export async function runAgent(task: string, agentName: string = 'detective') {
             totalResults: results.length
           };
         } catch (error: any) {
-          console.log('✗ Error:', error.message);
+          console.log('│');
+          console.log('│ ❌ Error:', error.message);
+          console.log('└────────────────────────────────────────────────────────────────');
           return { success: false, error: error.message };
         }
       }
@@ -217,18 +295,19 @@ export async function runAgent(task: string, agentName: string = 'detective') {
         reasoning: z.string().describe('Why this insight is important')
       }),
       execute: async ({ insight, reasoning }) => {
-        console.log('⚡ Action: store_insight');
-        console.log('   Reason:', reasoning);
-        console.log('   Insight:', insight.substring(0, 100) + '...');
-        console.log('');
+        stepCount++;
+        console.log(`\n${'━'.repeat(70)}`);
+        console.log(`💾 STEP ${stepCount}: Store Insight`);
+        console.log('━'.repeat(70));
+        console.log(`\n💡 Reason: ${reasoning}\n`);
+        console.log('💾 Insight:', insight.substring(0, 100) + (insight.length > 100 ? '...' : ''));
         
         try {
           await db.storeInsight(agentName, insight, { 
             question_id: questionId,
             reasoning 
           });
-          console.log('✓ Insight stored');
-          console.log('');
+          console.log('\n✅ Insight stored in agent memory\n');
           
           await db.storeEvent(questionId, agentName, stepCount, 'action', {
             tool: 'store_insight',
@@ -238,7 +317,9 @@ export async function runAgent(task: string, agentName: string = 'detective') {
           
           return { success: true, message: 'Insight stored successfully' };
         } catch (error: any) {
-          console.log('✗ Error:', error.message);
+          console.log('│');
+          console.log('│ ❌ Error:', error.message);
+          console.log('└────────────────────────────────────────────────────────────────');
           return { success: false, error: error.message };
         }
       }
@@ -287,15 +368,19 @@ export async function runAgent(task: string, agentName: string = 'detective') {
       description: 'Analyze investigation process and performance - either current or a recent past investigation',
       parameters: z.object({
         search_query: z.string().optional().describe('Optional: search keywords to find a specific past investigation (e.g., "sales drop")'),
-        reasoning: z.string().describe('Why you want to analyze this investigation')
+        reasoning: z.string().optional().describe('Why you want to analyze this investigation')
       }),
       execute: async ({ search_query, reasoning }) => {
-        console.log('⚡ Action: analyze_agent_performance');
-        console.log('   Reason:', reasoning);
-        if (search_query) {
-          console.log('   Searching for:', search_query);
+        stepCount++;
+        console.log(`\n${'━'.repeat(70)}`);
+        console.log(`📈 STEP ${stepCount}: Analyze Investigation Process`);
+        console.log('━'.repeat(70));
+        if (reasoning) {
+          console.log(`\n💡 Reason: ${reasoning}\n`);
         }
-        console.log('');
+        if (search_query) {
+          console.log(`🔍 Searching for investigation: "${search_query}"\n`);
+        }
         
         try {
           let targetQuestionId = questionId;
@@ -305,14 +390,33 @@ export async function runAgent(task: string, agentName: string = 'detective') {
             const recentQuestions = await db.searchRecentQuestions(agentName, search_query, 1);
             if (recentQuestions.length > 0) {
               targetQuestionId = recentQuestions[0].id;
-              console.log(`   Found investigation: "${recentQuestions[0].question}"`);
-              console.log('');
+              console.log(`✅ Found: "${recentQuestions[0].question}"\n`);
+            } else {
+              console.log(`⚠️  No past investigation found matching "${search_query}"\n`);
             }
           }
           
           const stats = await db.analyzeAgentPerformance(targetQuestionId);
-          console.log(`✓ Performance analysis complete`);
-          console.log(`   Steps: ${stats.total_steps}, Duration: ${stats.duration_ms}ms`);
+          
+          console.log('📊 Investigation Details:');
+          console.log(`   Question: ${stats.question || 'Current investigation'}`);
+          console.log(`   Status: ${stats.status || 'in_progress'}`);
+          console.log(`   Total Steps: ${stats.total_steps || 0}`);
+          console.log(`   Duration: ${stats.duration_ms || 0}ms`);
+          
+          if (stats.tools_used && stats.tools_used.length > 0) {
+            console.log(`\n🔧 Tools Used:`);
+            stats.tools_used.forEach((tool: string) => {
+              if (tool) console.log(`   • ${tool}`);
+            });
+          }
+          
+          if (stats.tool_usage && stats.tool_usage.length > 0) {
+            console.log(`\n📈 Tool Usage:`);
+            stats.tool_usage.forEach((item: any) => {
+              console.log(`   • ${item.tool_name}: ${item.usage_count}x`);
+            });
+          }
           console.log('');
           
           await db.storeEvent(questionId, agentName, stepCount, 'action', {
@@ -337,7 +441,8 @@ export async function runAgent(task: string, agentName: string = 'detective') {
             }
           };
         } catch (error: any) {
-          console.log('✗ Error:', error.message);
+          console.log('\n❌ Error:', error.message);
+          console.log('');
           return { success: false, error: error.message };
         }
       }
@@ -350,7 +455,7 @@ export async function runAgent(task: string, agentName: string = 'detective') {
     const queryExamples = getQueryExamples();
 
     const result = await generateText({
-      model: openai('gpt-4o-mini') as any,
+      model: openai('gpt-4o') as any,
       tools,
       system: `You are an expert database detective investigating business problems.
 
@@ -394,6 +499,7 @@ YOUR TOOLS & WHEN TO USE THEM:
 7. analyze_agent_performance - Meta-analysis of your investigation
    USE FOR: "How did you figure this out?" questions
    SHOWS: Tools used, queries executed, time spent, investigation process
+   IMPORTANT: For meta-analysis questions, ALWAYS provide a search_query to find a recent completed investigation
 
 ═══════════════════════════════════════════════════════════════
 INVESTIGATION STRATEGY:
@@ -426,8 +532,9 @@ Question Type → Approach:
 → search_insights (recall all findings)
 → Synthesize recommendations
 
-"How did you figure this out?"
-→ analyze_agent_performance (show investigation process)
+"How did you figure this out?" / "Show me your investigation process"
+→ analyze_agent_performance with search_query for a recent completed investigation
+→ Show step-by-step process, tools used, execution flow
 
 ═══════════════════════════════════════════════════════════════
 KEY CAPABILITIES TO SHOWCASE:
@@ -441,46 +548,61 @@ KEY CAPABILITIES TO SHOWCASE:
 ✓ Self-observability - query your own investigation history
 
 ═══════════════════════════════════════════════════════════════
-IMPORTANT SQL TIPS:
+SQL QUERY CONSTRUCTION - REASON FROM THE SCHEMA:
 ═══════════════════════════════════════════════════════════════
 
-- Use CURRENT_DATE for today, CURRENT_DATE - 1 for yesterday
-- Use INTERVAL '7 days' for date math
-- NEVER SELECT embedding columns (they're huge 1536-dimensional vectors!)
-- For customer analysis: JOIN orders with user_feedback on customer_id
-- For lifetime value: SUM(amount) GROUP BY customer_id
+STEP 1: Analyze the question and identify what data you need
+STEP 2: Look at the schema above - what tables and columns are relevant?
+STEP 3: Construct SQL queries based on the schema and question
 
-SALES DROP INVESTIGATION QUERIES:
+KEY SQL PATTERNS FOR TIME-SERIES ANALYSIS:
 
-1. Compare yesterday vs day before BY PRODUCT (simpler and clearer):
-   SELECT 
-     product_name, 
-     SUM(CASE WHEN order_date = CURRENT_DATE-1 THEN amount ELSE 0 END) as yesterday_sales,
-     SUM(CASE WHEN order_date = CURRENT_DATE-2 THEN amount ELSE 0 END) as day_before_sales,
-     SUM(CASE WHEN order_date = CURRENT_DATE-1 THEN amount ELSE 0 END) -
-     SUM(CASE WHEN order_date = CURRENT_DATE-2 THEN amount ELSE 0 END) as change_amount
-   FROM orders 
-   WHERE order_date IN (CURRENT_DATE-1, CURRENT_DATE-2)
-   GROUP BY product_name
-   ORDER BY change_amount;
-   
-   Result columns: [product_name, yesterday_sales, day_before_sales, change_amount]
-   Negative change_amount = sales dropped!
+1. Comparing Time Periods:
+   - Use CASE WHEN to pivot time periods into columns for side-by-side comparison
+   - Example pattern: SUM(CASE WHEN date = period1 THEN amount ELSE 0 END) as period1_value
+   - ALWAYS use CURRENT_DATE - N for relative dates (today=CURRENT_DATE, yesterday=CURRENT_DATE-1)
+   - Compare apples to apples: day-to-day OR week-to-week (not 1 day vs 7 days!)
 
-2. Compare yesterday vs same day last week BY PRODUCT:
-   SELECT 
-     product_name,
-     SUM(CASE WHEN order_date = CURRENT_DATE-8 THEN amount ELSE 0 END) as last_week_sales,
-     SUM(CASE WHEN order_date = CURRENT_DATE-1 THEN amount ELSE 0 END) as yesterday_sales,
-     SUM(CASE WHEN order_date = CURRENT_DATE-1 THEN amount ELSE 0 END) -
-     SUM(CASE WHEN order_date = CURRENT_DATE-8 THEN amount ELSE 0 END) as change_amount
-   FROM orders
-   WHERE order_date IN (CURRENT_DATE-8, CURRENT_DATE-1)
-   GROUP BY product_name
-   ORDER BY change_amount;
-   
-   Result columns: [product_name, last_week_sales, yesterday_sales, change_amount]
-   Negative change_amount = sales dropped!
+2. Finding Root Causes:
+   - ALWAYS group by product/category to identify which specific items are affected
+   - Use ORDER BY to highlight biggest changes first
+   - Join with feedback tables to correlate issues
+
+3. Date Math:
+   - Yesterday: CURRENT_DATE - 1
+   - Same day last week: CURRENT_DATE - 8 (7 days + 1 for yesterday)
+   - Last week range: CURRENT_DATE - 13 to CURRENT_DATE - 7
+   - Use INTERVAL '7 days' for more complex date ranges
+
+4. Important Rules:
+   - NEVER SELECT embedding columns (they're 1536-dimensional vectors!)
+   - Group by product/item to identify specifics, not just totals
+   - Use descriptive column aliases (yesterday_sales, last_week_sales, change_amount)
+
+═══════════════════════════════════════════════════════════════
+RESPONSE STYLE - BE CONCISE AND DIRECT:
+═══════════════════════════════════════════════════════════════
+
+✓ Answer questions directly with key facts first
+✓ Use bullet points only when listing multiple items
+✓ Keep explanations SHORT (2-3 sentences max)
+✓ NO unnecessary markdown formatting (###, **, etc.)
+✓ NO verbose introductions like "Based on the analysis..." 
+✓ NO repeated conclusions or summaries
+✓ State findings clearly: "Product X had defects. Sales dropped 87%."
+
+WRONG (too verbose):
+"### Analysis Results
+Based on my investigation of the database, I discovered that **Premium Wireless Headphones** experienced a significant decline...
+### Key Findings:
+1. Sales decreased...
+### Conclusion:
+The investigation revealed..."
+
+RIGHT (concise):
+"Premium Wireless Headphones: Sales dropped 87% ($12,959 → $1,730). 
+Root cause: 27 customers reported defects (broken, poor quality, static noise).
+Action: Address quality control immediately."
 
 ═══════════════════════════════════════════════════════════════
 INVESTIGATION FLOW:
@@ -491,17 +613,38 @@ INVESTIGATION FLOW:
 3. Execute multiple queries if needed (be thorough!)
 4. Analyze results and connect dots
 5. Store important insights (use store_insight)
-6. State conclusion: "INVESTIGATION COMPLETE: [answer]"
+6. State conclusion clearly and concisely
 
 Remember: You have ONE database with ALL these capabilities.
-That's the power of Tim scalable Postgres!`,
+That's the power of Timescale Postgres!`,
       prompt: task,
       maxToolRoundtrips: 5,
       onStepFinish: ({ text }) => {
-        stepCount++;
         if (text) {
-          console.log(`\n[STEP ${stepCount}]`);
-          console.log('💭', text);
+          console.log(`\n${'━'.repeat(70)}`);
+          console.log('🧠 Agent Thinking');
+          console.log('━'.repeat(70));
+          console.log('');
+          
+          // Wrap text to fit nicely with proper word wrapping
+          const maxWidth = 68;
+          const words = text.split(' ');
+          let currentLine = '';
+          
+          words.forEach(word => {
+            if (currentLine.length === 0) {
+              currentLine = word;
+            } else if ((currentLine + ' ' + word).length <= maxWidth) {
+              currentLine += ' ' + word;
+            } else {
+              console.log(currentLine);
+              currentLine = word;
+            }
+          });
+          if (currentLine.length > 0) {
+            console.log(currentLine);
+          }
+          console.log('');
           
           // Store agent thoughts in TimescaleDB hypertable
           db.storeEvent(questionId, agentName, stepCount, 'thought', {
@@ -511,9 +654,12 @@ That's the power of Tim scalable Postgres!`,
       }
     });
 
-    console.log('\n' + '─'.repeat(70));
-    console.log('✅ Investigation Complete');
+    console.log('\n' + '═'.repeat(70));
+    console.log('✅  INVESTIGATION COMPLETE');
+    console.log('═'.repeat(70));
+    console.log('');
     console.log(result.text);
+    console.log('');
     
     const durationMs = Date.now() - startTime;
     
