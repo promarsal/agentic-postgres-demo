@@ -6,74 +6,101 @@
   <img src="agentic-postgres-black-theme.png" alt="Agentic Postgres - AI-Native Database" width="600">
 </p>
 
-Agentic Postgres combines **MCP integration**, **vector embeddings**, **hybrid search**, **time-series analytics**, and **observability** in a single, intelligent platform.
+One database with **vector search**, **hybrid search**, **time-series**, and **AI capabilities** built in.
 
-> One database. All capabilities. Zero complexity.
+> Replace Pinecone + Elasticsearch + InfluxDB with intelligent Postgres.
 
----
+<details>
+<summary><b>📖 Why Agentic Postgres?</b> (Click to expand)</summary>
 
-## Why Agentic Postgres?
+When a user asks **"Why did sales drop last month?"** that simple question triggers:
+- **→ SQL queries** for structured data
+- **→ Time-series analysis** to identify trends
+- **→ Keyword search** for exact mentions
+- **→ Semantic search** to understand meaning
+- **→ Hybrid search** combining multiple techniques
+- **→ Memory updates** to store insights
 
-Users want experiences like ChatGPT. They expect apps to intelligently figure out what tools are needed, think through problems step by step, and adapt to their questions in real time.
+Traditional approach: Stitch together PostgreSQL + InfluxDB + Elasticsearch + Pinecone + OpenAI API
 
-When an end user asks **"Why did sales drop last month?"** or **"Are customers complaining about our new feature?"**, that simple question triggers dozens of sophisticated database operations:
-
-- **→ Multiple SQL queries** for structured data analysis
-- **→ Time-series queries** to identify trends and anomalies over time
-- **→ Keyword search** to find exact mentions and phrases
-- **→ Semantic search** to understand meaning and sentiment
-- **→ Hybrid search** combining multiple techniques for maximum recall
-- **→ Memory updates** to store insights and maintain context
-
-To support this, Postgres needs **all of these capabilities built in**. MCP for intelligent interactions. Vector embeddings for semantic search. BM25 for keyword search. Hybrid search combining both. Time-series analytics. All working together, at scale, faster than stitching together multiple specialized databases.
-
-**That's Agentic Postgres.**
-
----
-
-## Replace Your Entire Stack
-
-From five separate databases to one intelligent system:
-
-### Before: Traditional Stack
-```
-PostgreSQL + InfluxDB + Elasticsearch + Pinecone + OpenAI API
-```
-Five services • Data synchronization • Higher costs • Operational complexity
-
-### After: Agentic Postgres
-```
-Agentic Postgres
-```
-One database • Zero data movement • Simplified operations • Lower total cost
+**Agentic Postgres**: All of this in ONE database. No external services. No data movement.
 
 **What gets replaced:**
-- ❌ **Pinecone** (vector search) → ✅ **pgvectorscale**
-- ❌ **Elasticsearch** (full-text) → ✅ **PostgreSQL FTS (BM25)**
-- ❌ **InfluxDB** (time-series) → ✅ **TimescaleDB**
-- ❌ **Separate embedding service** → ✅ **pgai**
-- ❌ **Application-layer logic** → ✅ **plpgsql**
+- ❌ Pinecone → ✅ pgvectorscale (DiskANN)
+- ❌ Elasticsearch → ✅ pg_textsearch (BM25)
+- ❌ InfluxDB → ✅ TimescaleDB
+- ❌ Embedding service → ✅ pgai
+- ❌ App logic → ✅ plpgsql
+
+</details>
+
 
 ---
 
-## The Tech Stack
+## Quick Start
 
-Six powerful extensions working together as one:
+### Get Started in 3 Commands
 
-| Extension | Type | Purpose | Replaces |
-|-----------|------|---------|----------|
-| **timescaledb** | time-series | Hypertables, time-series functions | InfluxDB, Prometheus |
-| **vector** | ai | Vector data type, basic ops | Foundation layer |
-| **vectorscale** | ai | DiskANN index for fast similarity | Pinecone, Weaviate |
-| **ai (pgai)** | ai | Generate embeddings in DB | Separate embedding service |
-| **pg_textsearch** | Built-in | BM25 keyword search | Elasticsearch, Algolia |
-| **plpgsql** | Built-in | Procedural language for logic | Application-layer logic |
+```bash
+# Install Tiger CLI
+curl -fsSL https://cli.tigerdata.com | sh
+
+# Authenticate
+tiger auth login
+
+# Install MCP
+tiger mcp install
+```
+
+### Run the Demo
+
+```bash
+# Clone and install
+git clone https://github.com/promarsal/agentic-postgres-demo.git
+cd agentic-postgres-demo
+npm install
+
+# Configure
+echo "OPENAI_API_KEY=sk-..." > .env
+echo "DATABASE_URL=postgresql://..." >> .env  # Get from: tiger mcp install output
+
+# Setup database and populate data
+npm run build && npm run setup
+npm run populate-embeddings
+```
+
+**👉 See [`QUICKSTART.md`](QUICKSTART.md) for detailed 5-minute setup guide.**
 
 ---
 
-## See It In Action
+## Try the Investigation
 
-Watch how an agent investigates a business problem using plain English queries. Each question builds on the last, showcasing different capabilities.
+Run these 6 questions to see all capabilities in action:
+
+```bash
+# Q1: SQL Analytics + TimescaleDB
+npm run dev "Sales dropped yesterday compared to last week - why?"
+
+# Q2: Hybrid Search (BM25 + Vector + RRF) 🌟
+npm run dev "What are customers saying about Premium Wireless Headphones?"
+
+# Q3: Semantic Search (pgvectorscale)
+npm run dev "Are other products showing similar quality issues?"
+
+# Q4: SQL Joins + Customer Analysis
+npm run dev "Which customers bought Premium Wireless Headphones and left negative feedback?"
+
+# Q5: Agent Memory (RAG)
+npm run dev "Based on what we've learned, what should I do immediately?"
+
+# Q6: Self-Observability
+npm run dev "Show me how you figured this out - what was your investigation process?"
+```
+
+**Each question takes 10-30 seconds** and demonstrates different Agentic Postgres capabilities.
+
+<details>
+<summary><b>📊 See Detailed Examples</b> (Click to expand)</summary>
 
 ### 1. "Why did sales drop?"
 **Capability:** TimescaleDB + Multi-Query Analysis
@@ -147,69 +174,7 @@ SELECT * FROM combined ORDER BY rrf_score DESC LIMIT 15;
 
 **Agent reveals:** Step-by-step investigation process, tools used, duration - querying its own history!
 
----
-
-## Quick Start
-
-### Get Started in 3 Commands
-
-```bash
-# Install Tiger CLI
-curl -fsSL https://cli.tigerdata.com | sh
-
-# Authenticate
-tiger auth login
-
-# Install MCP
-tiger mcp install
-```
-
-### Run the Demo
-
-```bash
-# Clone and install
-git clone https://github.com/promarsal/agentic-postgres-demo.git
-cd agentic-postgres-demo
-npm install
-
-# Configure
-echo "OPENAI_API_KEY=sk-..." > .env
-echo "DATABASE_URL=postgresql://..." >> .env  # Get from: tiger mcp install output
-
-# Setup database and populate data
-npm run build && npm run setup
-npm run populate-embeddings
-```
-
-**👉 See [`QUICKSTART.md`](QUICKSTART.md) for detailed 5-minute setup guide.**
-
----
-
-## Try the Investigation
-
-Run these 6 questions to see all capabilities in action:
-
-```bash
-# Q1: SQL Analytics + TimescaleDB
-npm run dev "Sales dropped yesterday compared to last week - why?"
-
-# Q2: Hybrid Search (BM25 + Vector + RRF) 🌟
-npm run dev "What are customers saying about Premium Wireless Headphones?"
-
-# Q3: Semantic Search (pgvectorscale)
-npm run dev "Are other products showing similar quality issues?"
-
-# Q4: SQL Joins + Customer Analysis
-npm run dev "Which customers bought Premium Wireless Headphones and left negative feedback?"
-
-# Q5: Agent Memory (RAG)
-npm run dev "Based on what we've learned, what should I do immediately?"
-
-# Q6: Self-Observability
-npm run dev "Show me how you figured this out - what was your investigation process?"
-```
-
-**Each question takes 10-30 seconds** and demonstrates different Agentic Postgres capabilities.
+</details>
 
 ---
 
